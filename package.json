@@ -1,72 +1,11 @@
-const puppeteer = require('puppeteer');
-
-async function scrapeCessna() {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
-  // Початкова URL
-  const startUrl = 'https://www.aviationpartsinc.com/product-category/aircraft-parts/cessna-beechcraft/';
-  await page.goto(startUrl, { waitUntil: 'networkidle2' });
-
-  const results = [];
-
-  async function scrapePage() {
-    // Отримуємо посилання на продукти
-    const productLinks = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('.product-loop-header a.woocommerce-LoopProduct-link'))
-        .map(link => link.href);
-    });
-
-    for (const link of productLinks) {
-      await page.goto(link, { waitUntil: 'networkidle2' });
-
-      // Парсимо дані продукту
-      const productData = await page.evaluate(() => {
-        const getText = (selector) => {
-          const element = document.querySelector(selector);
-          return element ? element.innerText.trim() : null;
-        };
-
-        const getAttribute = (selector, attr) => {
-          const element = document.querySelector(selector);
-          return element ? element.getAttribute(attr) : null;
-        };
-
-        return {
-          title: getText('h1'),
-          description: getText('.electro-description td'),
-          category: getText('span.posted_in'),
-          tags: getText('span.tagged_as'),
-          tags2: getText('.summary span.loop-product-categories'),
-          variantSku: getText('.woocommerce-product-details__short-description td'),
-          variantSku2: getText('div.summary'),
-          mainImage: getAttribute('img.attachment-shop_single', 'src'),
-          additionalImages: Array.from(document.querySelectorAll('img.attachment-shop_thumbnail')).map(img => img.src),
-          weight: getText('.woocommerce-product-attributes-item--weight td'),
-          dimensions: getText('.woocommerce-product-attributes-item--dimensions td'),
-          variantPrices: Array.from(document.querySelectorAll('.woocommerce-variation-price bdi')).map(price => price.innerText.trim()),
-          variantPrice2: getText('p bdi')
-        };
-      });
-
-      results.push(productData);
-    }
-
-    // Перевіряємо, чи є наступна сторінка
-    const nextPage = await page.$('.electro-advanced-pagination a');
-    if (nextPage) {
-      await Promise.all([
-        page.click('.electro-advanced-pagination a'),
-        page.waitForNavigation({ waitUntil: 'networkidle2' })
-      ]);
-      await scrapePage();
-    }
+{
+  "name": "cessna-scraper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "puppeteer": "^20.0.0"
   }
-
-  await scrapePage();
-
-  await browser.close();
-  return results;
 }
-
-scrapeCessna().then((data) => console.log(data)).catch(console.error);
